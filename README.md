@@ -43,7 +43,8 @@ Tiga pertanyaan yang dijawab proyek ini:
 
 ## 5. Cara Kerja Tiap Algoritma
 
-**TF-IDF.** Cara kerjanya: kata yang sering muncul di satu profil merchant tapi jarang muncul di profil lain dianggap penting untuk profil itu. Kata umum yang muncul di hampir semua profil (seperti "produk" atau "bagus") dianggap kurang penting.
+### 5.1 TF-IDF
+Cara kerjanya: kata yang sering muncul di satu profil merchant tapi jarang muncul di profil lain dianggap penting untuk profil itu. Kata umum yang muncul di hampir semua profil (seperti "produk" atau "bagus") dianggap kurang penting.
 
 ```
 tfidf(t, d) = tf(t, d) × log(N / df(t))
@@ -51,7 +52,7 @@ tfidf(t, d) = tf(t, d) × log(N / df(t))
 
 `tf(t, d)`: berapa kali kata `t` muncul di dokumen `d`. `N`: jumlah total dokumen. `df(t)`: di berapa dokumen kata itu muncul. Query dan profil merchant diubah jadi angka pakai rumus ini, lalu dibandingkan pakai cosine similarity.
 
-**Cosine similarity.** Ini rumus yang dipakai TF-IDF dan semantic search untuk mengukur "seberapa mirip" dua teks setelah diubah jadi angka (vektor):
+### **Cosine similarity.** Ini rumus yang dipakai TF-IDF dan semantic search untuk mengukur "seberapa mirip" dua teks setelah diubah jadi angka (vektor):
 
 ```
 cos(A, B) = (A · B) / (‖A‖ × ‖B‖)
@@ -59,9 +60,13 @@ cos(A, B) = (A · B) / (‖A‖ × ‖B‖)
 
 Intinya: mengukur arah, bukan panjang. Teks panjang dan teks pendek dengan isi mirip tetap dianggap mirip, karena yang dibandingkan cuma arahnya.
 
-**Semantic search.** Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
+### 5.2 Semantic search. 
 
-**Personalisasi.** Skor akhir tiap merchant adalah campuran dua hal: relevansi terhadap query, dan kecocokan dengan kebiasaan belanja pelanggan.
+Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
+
+### 5.3 Personalisasi
+
+Skor akhir tiap merchant adalah campuran dua hal: relevansi terhadap query, dan kecocokan dengan kebiasaan belanja pelanggan.
 
 ```
 final_score = alpha × score_query + (1 - alpha) × score_history
@@ -73,19 +78,23 @@ final_score = alpha × score_query + (1 - alpha) × score_history
 
 Tiga metrik ini dihitung dari 110 query ground truth sintetis:
 
-**Recall@K**  dari semua merchant yang seharusnya muncul, berapa persen yang benar-benar masuk ke K hasil teratas. Recall rendah berarti banyak merchant relevan yang terlewat.
+### 6.1 Recall@K
+Dari semua merchant yang seharusnya muncul, berapa persen yang benar-benar masuk ke K hasil teratas. Recall rendah berarti banyak merchant relevan yang terlewat.
 
 ```
 Recall@K = (merchant relevan yang masuk top-K) / (total merchant relevan)
 ```
 
-**Precision@K**  dari K hasil yang ditampilkan, berapa persen yang benar-benar relevan. Precision rendah berarti banyak hasil yang "nyasar".
+### 6.2 Precision@K
+
+Dari K hasil yang ditampilkan, berapa persen yang benar-benar relevan. Precision rendah berarti banyak hasil yang "nyasar".
 
 ```
 Precision@K = (merchant relevan yang masuk top-K) / K
 ```
 
-**MRR (Mean Reciprocal Rank)**  seberapa cepat hasil yang relevan muncul, dirata-rata dari semua query. MRR tinggi berarti hasil paling relevan biasanya muncul di urutan atas, bukan terkubur di posisi bawah.
+### 6.3 MRR (Mean Reciprocal Rank)
+Seberapa cepat hasil yang relevan muncul, dirata-rata dari semua query. MRR tinggi berarti hasil paling relevan biasanya muncul di urutan atas, bukan terkubur di posisi bawah.
 
 ```
 MRR = (1 / |Q|) × Σ (1 / rank_i)
