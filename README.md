@@ -52,7 +52,8 @@ tfidf(t, d) = tf(t, d) × log(N / df(t))
 
 `tf(t, d)`: berapa kali kata `t` muncul di dokumen `d`. `N`: jumlah total dokumen. `df(t)`: di berapa dokumen kata itu muncul. Query dan profil merchant diubah jadi angka pakai rumus ini, lalu dibandingkan pakai cosine similarity.
 
-### **Cosine similarity.** Ini rumus yang dipakai TF-IDF dan semantic search untuk mengukur "seberapa mirip" dua teks setelah diubah jadi angka (vektor):
+### 5.2 Cosine similarity 
+Ini rumus yang dipakai TF-IDF dan semantic search untuk mengukur "seberapa mirip" dua teks setelah diubah jadi angka (vektor):
 
 ```
 cos(A, B) = (A · B) / (‖A‖ × ‖B‖)
@@ -60,11 +61,11 @@ cos(A, B) = (A · B) / (‖A‖ × ‖B‖)
 
 Intinya: mengukur arah, bukan panjang. Teks panjang dan teks pendek dengan isi mirip tetap dianggap mirip, karena yang dibandingkan cuma arahnya.
 
-### 5.2 Semantic search. 
+### 5.3 Semantic search
 
 Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
 
-### 5.3 Personalisasi
+### 5.4 Personalisasi
 
 Skor akhir tiap merchant adalah campuran dua hal: relevansi terhadap query, dan kecocokan dengan kebiasaan belanja pelanggan.
 
