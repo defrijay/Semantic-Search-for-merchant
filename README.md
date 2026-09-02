@@ -14,7 +14,7 @@ Tiga pertanyaan yang dijawab proyek ini:
 2. **Kalau mesin pencari diganti ke yang berbasis makna (bukan kata kunci), apakah pengguna lebih sering menemukan merchant yang relevan?**
    *Diukur pakai: Recall@10, Precision@10, MRR  TF-IDF vs semantic.*
 3. **Bisakah urutan hasil pencarian disesuaikan dengan kebiasaan belanja tiap pelanggan, tanpa membuat hasilnya kurang relevan?**
-   *Diukur pakai: overlap top-5 vs skor relevansi query, di berbagai nilai `alpha`, untuk satu query uji ("produk elektronik") pada engine semantic.  
+   *Diukur pakai: overlap top-5 vs skor relevansi query, di berbagai nilai `alpha`, untuk satu query uji ("produk elektronik") pada engine semantic.*
 
 ## 2. Sumber Data
 
@@ -129,7 +129,17 @@ Semantic search juga tidak selalu menang. Performanya tergantung seberapa dekat 
 
 Catatan penting: fitur ini baru bisa dipakai untuk 2.876 dari 99.441 pelanggan (2,9%) yang punya histori ≥2 order. Sebagian besar pelanggan Olist cuma belanja sekali, jadi >97% pelanggan belum bisa menikmati personalisasi ini.
 
-## 8. Rekomendasi
+## 8. Kesimpulan
+
+Ketiga business question di Bagian 1 terjawab dengan hasil yang konsisten satu sama lain:
+
+1. **Pencarian kata kunci saat ini memang bermasalah.** TF-IDF melewatkan hampir separuh (~42%) merchant relevan di top-10, dan sebagian kegagalannya bukan cuma "tidak ketemu" tapi "salah arah"  nyasar ke kategori yang tidak relevan gara-gara kebetulan ada kata yang sama. Ini mengonfirmasi masalah awal yang mendasari proyek: pencocokan kata literal tidak cukup untuk query bahasa sehari-hari.
+2. **Semantic search terbukti lebih baik, tapi bukan solusi mutlak.** Recall@10 dan Precision@10 naik masing-masing 2,5 dan 1,5 poin dibanding TF-IDF, namun MRR-nya sedikit lebih rendah  TF-IDF masih sedikit unggul menaruh hasil terbaik di posisi #1. Selisih yang tidak besar ini sebagian disebabkan ground truth yang dibuat dari kata kunci kategori, sehingga secara struktural menguntungkan TF-IDF. Kesimpulannya: semantic search adalah peningkatan yang nyata, tapi kekuatannya baru maksimal kalau digabung dengan TF-IDF (hybrid), bukan menggantikannya sepenuhnya.
+3. **Personalisasi berbasis histori belanja bisa dilakukan tanpa mengorbankan relevansi  asal di rentang `alpha` yang tepat.** Pada `alpha ≈ 0,7`, hasil sudah cukup bergeser ke preferensi pelanggan (23% top-5 berubah) sementara relevansi query nyaris tidak turun (~1%). Di bawah `alpha = 0,5`, trade-off berbalik cepat dan relevansi anjlok. Tapi manfaat ini masih sangat terbatas cakupannya: baru 2,9% pelanggan Olist yang punya histori order cukup untuk dipersonalisasi, dan pola `alpha` ini baru diuji pada satu query dan satu engine.
+
+Secara keseluruhan, proyek ini menunjukkan bahwa peralihan dari pencarian berbasis kata kunci ke pencarian berbasis makna adalah langkah yang tervalidasi secara terukur, dengan personalisasi sebagai lapisan tambahan yang aman diterapkan pada rentang `alpha` yang sudah diketahui  dengan catatan bahwa cakupan pengujian personalisasi dan porsi pelanggan yang bisa dijangkau keduanya masih perlu diperluas sebelum rollout penuh (lihat Rekomendasi dan Batasan).
+
+## 9. Rekomendasi
 
 Tiap rekomendasi di bawah menjawab salah satu business question di Bagian 1.
 
@@ -144,14 +154,14 @@ Tiap rekomendasi di bawah menjawab salah satu business question di Bagian 1.
 4. Sebelum rollout, ulangi pengujian trade-off `alpha` di beberapa query lain (bukan cuma "produk elektronik") untuk memastikan titik seimbang 0,6–0,8 juga berlaku di sana.
 5. Buat cara personalisasi lain berbasis aktivitas sesi (kategori yang sedang dilihat/diklik), khusus untuk >97% pelanggan yang belum punya histori order dan belum kejangkau blending `alpha`.
 
-## 9. Batasan & Keterbatasan Proyek
+## 10. Batasan & Keterbatasan Proyek
 
 1. Ground truth evaluasi (Recall@K/Precision@K/MRR) masih dibuat sintetis dari taksonomi kategori, bukan dari log pencarian pengguna asli.
 2. Profil merchant hasil rekonstruksi dari data transaksi, bukan deskripsi asli yang ditulis merchant.
 3. ~31% seller (957 dari 3.095) tidak masuk pencarian karena order-nya kurang dari 3  datanya terlalu sedikit untuk bikin profil yang representatif.
 4. Evaluasi trade-off personalisasi di bagian 7.3, meski terukur lintas 50 pelanggan × 4 nilai alpha, baru dicoba pada **1 query** ("produk elektronik") dan **1 engine** (semantic)  belum divariasikan ke query atau engine lain.
 
-## 10. Cara Menjalankan
+## 11. Cara Menjalankan
 
 1. Taruh 9 file CSV Olist di folder `data/` (satu level di atas atau sejajar dengan folder `notebooks/`).
 2. Install dependency:
@@ -164,7 +174,7 @@ Tiap rekomendasi di bawah menjawab salah satu business question di Bagian 1.
    streamlit run app.py
    ```
 
-## 11. Struktur Proyek
+## 12. Struktur Proyek
 
 ```
 .
@@ -176,7 +186,7 @@ Tiap rekomendasi di bawah menjawab salah satu business question di Bagian 1.
 └── README.md
 ```
 
-## 12. Pengembangan Lanjutan
+## 13. Pengembangan Lanjutan
 
 1. Kumpulkan log pencarian pengguna asli lewat demo Streamlit, supaya ground truth evaluasi lebih mencerminkan kondisi nyata.
 2. Coba model embedding multibahasa lain, atau fine-tuning ringan khusus e-commerce Indonesia.
