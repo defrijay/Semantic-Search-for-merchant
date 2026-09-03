@@ -1,20 +1,46 @@
-# Semantic Search untuk Merchant
+# **Semantic Search untuk Merchant**
 ### Search & Discovery berbasis Embedding, Olist Brazilian E-Commerce Dataset
 
 > Proyek ini membangun dua mesin pencari untuk katalog merchant e-commerce, lalu membandingkan keduanya: pencarian kata kunci (TF-IDF) dan pencarian makna (semantic search berbasis embedding). Dataset Olist tidak punya deskripsi merchant, jadi langkah pertama proyek ini menyusun ulang profil teks tiap seller dari data transaksi. Hasilnya: perbandingan dua engine di 110 query, plus fitur personalisasi yang menyesuaikan hasil dengan histori belanja pelanggan.
 
+## Daftar Isi
+
+1. [Latar Belakang & Business Questions](#1-latar-belakang--business-questions)
+2. [Sumber Data](#2-sumber-data)
+3. [Metodologi / Alur Kerja](#3-metodologi--alur-kerja)
+4. [Tech Stack](#4-tech-stack)
+5. [Cara Kerja Tiap Algoritma](#5-cara-kerja-tiap-algoritma)
+   - [5.1 TF-IDF](#51-tf-idf)
+   - [5.2 Cosine similarity](#52-cosine-similarity)
+   - [5.3 Semantic search](#53-semantic-search)
+   - [5.4 Personalisasi](#54-personalisasi)
+6. [Cara Mengukur Hasilnya](#6-cara-mengukur-hasilnya)
+   - [6.1 Recall@K](#61-recallk)
+   - [6.2 Precision@K](#62-precisionk)
+   - [6.3 MRR (Mean Reciprocal Rank)](#63-mrr-mean-reciprocal-rank)
+7. [Hasil & Insight Kunci](#7-hasil--insight-kunci)
+   - [7.1 BQ1: Seberapa sering pengguna gagal menemukan merchant?](#71-business-question-1--seberapa-sering-pengguna-gagal-menemukan-merchant-yang-mereka-cari)
+   - [7.2 BQ2: Apakah mesin pencari berbasis makna membantu?](#72-business-question-2--apakah-mesin-pencari-berbasis-makna-membantu-pengguna-lebih-baik)
+   - [7.3 BQ3: Bisakah hasil dipersonalisasi tanpa merusak relevansi?](#73-business-question-3--bisakah-hasil-disesuaikan-per-pelanggan-tanpa-merusak-relevansi)
+8. [Kesimpulan](#8-kesimpulan)
+9. [Rekomendasi](#9-rekomendasi)
+10. [Batasan & Keterbatasan Proyek](#10-batasan--keterbatasan-proyek)
+11. [Cara Menjalankan](#11-cara-menjalankan)
+12. [Struktur Proyek](#12-struktur-proyek)
+13. [Pengembangan Lanjutan](#13-pengembangan-lanjutan)
+14. [Referensi](#14-referensi)
+
 ## 1. Latar Belakang & Business Questions
 
-Pencarian kata kunci cuma cocok kalau kata di query sama persis dengan kata di teks yang dicari. Query "perlengkapan bayi murah" bisa gagal menemukan merchant yang relevan kalau profilnya ditulis dengan kata lain. Semantic search mengatasi ini dengan mencocokkan makna, bukan kata per kata.
+Pencarian kata kunci cuma cocok kalau kata di query sama persis dengan kata di teks yang dicari. Query "perlengkapan bayi murah" bisa gagal menemukan merchant yang relevan kalau profilnya ditulis dengan kata lain. Semantic search mengatasi ini dengan mencocokkan makna, bukan kata per kata. Keterbatasan pencocokan literal ini dan manfaat menggabungkannya dengan pencocokan berbasis makna (semantic) juga ditunjukkan pada studi retrieval dokumen berskala besar, yang menjadi salah satu dasar rekomendasi hybrid TF-IDF + semantic di proyek ini (Kuzi et al., 2020).
 
 Tiga pertanyaan yang dijawab proyek ini:
 
-1. **Seberapa sering pengguna gagal menemukan merchant yang mereka cari lewat pencarian saat ini?**
-   *Diukur pakai: Recall@10 dan studi kasus kualitatif pada TF-IDF.*
-2. **Kalau mesin pencari diganti ke yang berbasis makna (bukan kata kunci), apakah pengguna lebih sering menemukan merchant yang relevan?**
-   *Diukur pakai: Recall@10, Precision@10, MRR  TF-IDF vs semantic.*
-3. **Bisakah urutan hasil pencarian disesuaikan dengan kebiasaan belanja tiap pelanggan, tanpa membuat hasilnya kurang relevan?**
-   *Diukur pakai: overlap top-5 vs skor relevansi query, di berbagai nilai `alpha`, untuk satu query uji ("produk elektronik") pada engine semantic.*
+| # | Pertanyaan | Diukur pakai |
+|---|---|---|
+| BQ1 | Seberapa sering pengguna gagal menemukan merchant yang mereka cari lewat pencarian saat ini? | Recall@10 dan studi kasus kualitatif pada TF-IDF |
+| BQ2 | Kalau mesin pencari diganti ke yang berbasis makna (bukan kata kunci), apakah pengguna lebih sering menemukan merchant yang relevan? | Recall@10, Precision@10, MRR — TF-IDF vs semantic |
+| BQ3 | Bisakah urutan hasil pencarian disesuaikan dengan kebiasaan belanja tiap pelanggan, tanpa membuat hasilnya kurang relevan? | Overlap top-5 vs skor relevansi query, di berbagai nilai `alpha`, untuk satu query uji ("produk elektronik") pada engine semantic |
 
 ## 2. Sumber Data
 
@@ -32,6 +58,8 @@ Tiga pertanyaan yang dijawab proyek ini:
 | 6. Bandingkan engine | 3 query bahasa sehari-hari dicoba di kedua engine | Studi kasus kualitatif |
 | 7. Evaluasi kuantitatif | Ground truth sintetis dari taksonomi kategori (110 query), hitung Recall@10 / Precision@10 / MRR | Tabel & chart perbandingan |
 | 8. Personalisasi | Gabungkan skor query (engine semantic) dengan skor histori kategori pelanggan (≥2 order), untuk 1 query uji ("produk elektronik") | Evaluasi trade-off relevansi vs personalisasi |
+
+Model embedding multibahasa yang dipakai di tahap 5 (`paraphrase-multilingual-MiniLM-L12-v2`) berasal dari pendekatan knowledge distillation yang memetakan kalimat lintas bahasa ke ruang vektor yang sama, sehingga kalimat dengan makna serupa saling berdekatan meski bahasanya berbeda (Reimers & Gurevych, 2020).
 
 ## 4. Tech Stack
 
@@ -63,7 +91,7 @@ Intinya: mengukur arah, bukan panjang. Teks panjang dan teks pendek dengan isi m
 
 ### 5.3 Semantic search
 
-Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
+Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda — lewat proses knowledge distillation dari model monolingual berbahasa Inggris ke ruang vektor multibahasa (Reimers & Gurevych, 2020), sehingga model ini bisa dipakai untuk profil dan query berbahasa Indonesia meski data latihan aslinya didominasi bahasa Inggris. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
 
 ### 5.4 Personalisasi
 
@@ -155,7 +183,7 @@ Tiap rekomendasi di bawah menjawab salah satu business question di Bagian 1.
 
 **Untuk BQ 1 & 2  kualitas pencarian:**
 
-1. Gabungkan TF-IDF dan semantic jadi satu (hybrid), jangan pilih salah satu. Semantic menambal miss TF-IDF, TF-IDF menambal salah arah semantic saat kosakata query jauh dari profil merchant.
+1. Gabungkan TF-IDF dan semantic jadi satu (hybrid), jangan pilih salah satu. Semantic menambal miss TF-IDF, TF-IDF menambal salah arah semantic saat kosakata query jauh dari profil merchant  pendekatan hybrid seperti ini konsisten dengan temuan bahwa pencocokan semantic dan leksikal saling melengkapi, bukan saling menggantikan (Kuzi et al., 2020).
 2. Tulis profil merchant dengan kalimat yang lebih natural, bukan template kaku, supaya model semantic punya lebih banyak "bahan" untuk memahami makna  ini langsung menaikkan recall semantic (BQ2) dan mengurangi salah arah TF-IDF (BQ1).
 
 **Untuk BQ 3  personalisasi:**
@@ -202,3 +230,9 @@ Tiap rekomendasi di bawah menjawab salah satu business question di Bagian 1.
 2. Coba model embedding multibahasa lain, atau fine-tuning ringan khusus e-commerce Indonesia.
 3. A/B test hybrid scoring (TF-IDF + semantic) melawan semantic murni, pakai query nyata.
 4. Perluas evaluasi personalisasi ke lebih banyak query dan nilai `alpha` yang lebih granular, untuk menemukan titik optimal per kategori.
+
+## 14. Referensi
+
+Kuzi, S., Zhang, M., Li, C., Bendersky, M., & Najork, M. (2020). *Leveraging semantic and lexical matching to improve the recall of document retrieval systems: A hybrid approach* (arXiv:2010.01195). arXiv. https://arxiv.org/abs/2010.01195
+
+Reimers, N., & Gurevych, I. (2020). Making monolingual sentence embeddings multilingual using knowledge distillation. In *Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP)* (pp. 4512–4525). Association for Computational Linguistics. https://doi.org/10.18653/v1/2020.emnlp-main.365
