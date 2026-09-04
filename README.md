@@ -1,5 +1,7 @@
 # **Semantic Search untuk Merchant**
-### Search & Discovery berbasis Embedding, Olist Brazilian E-Commerce Dataset
+### Search & Discovery berbasis Embedding
+
+![Cover](assets/cover.jpg)
 
 > Proyek ini membangun dua mesin pencari untuk katalog merchant e-commerce, lalu membandingkan keduanya: pencarian kata kunci (TF-IDF) dan pencarian makna (semantic search berbasis embedding). Dataset Olist tidak punya deskripsi merchant, jadi langkah pertama proyek ini menyusun ulang profil teks tiap seller dari data transaksi. Hasilnya: perbandingan dua engine di 110 query, plus fitur personalisasi yang menyesuaikan hasil dengan histori belanja pelanggan.
 
