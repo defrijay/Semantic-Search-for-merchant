@@ -1,247 +1,247 @@
-# **Semantic Search untuk Merchant**
-### Search & Discovery berbasis Embedding
+# **Semantic Search for Merchants**
+### Embedding-based Search & Discovery
 
 ![Cover](assets/cover.jpg)
 
-> Proyek ini membangun dua mesin pencari untuk katalog merchant e-commerce, lalu membandingkan keduanya: pencarian kata kunci (TF-IDF) dan pencarian makna (semantic search berbasis embedding). Dataset Olist tidak punya deskripsi merchant, jadi langkah pertama proyek ini menyusun ulang profil teks tiap seller dari data transaksi. Hasilnya: perbandingan dua engine di 110 query, plus fitur personalisasi yang menyesuaikan hasil dengan histori belanja pelanggan.
+> This project builds two search engines for an e-commerce merchant catalog, then compares them: keyword search (TF-IDF) and meaning-based search (embedding-based semantic search). The Olist dataset has no merchant descriptions, so the first step reconstructs a text profile for each seller from transaction data. The result: a comparison of the two engines across 110 queries, plus a personalization feature that adjusts results based on each customer's purchase history.
 
-## Daftar Isi
+## Table of Contents
 
-1. [Latar Belakang & Business Questions](#1-latar-belakang--business-questions)
-2. [Sumber Data](#2-sumber-data)
-3. [Metodologi / Alur Kerja](#3-metodologi--alur-kerja)
+1. [Background & Business Questions](#1-background--business-questions)
+2. [Data Source](#2-data-source)
+3. [Methodology / Workflow](#3-methodology--workflow)
 4. [Tech Stack](#4-tech-stack)
-5. [Cara Kerja Tiap Algoritma](#5-cara-kerja-tiap-algoritma)
+5. [How Each Algorithm Works](#5-how-each-algorithm-works)
    - [5.1 TF-IDF](#51-tf-idf)
    - [5.2 Cosine similarity](#52-cosine-similarity)
    - [5.3 Semantic search](#53-semantic-search)
-   - [5.4 Personalisasi](#54-personalisasi)
-6. [Cara Mengukur Hasilnya](#6-cara-mengukur-hasilnya)
+   - [5.4 Personalization](#54-personalization)
+6. [How Results Are Measured](#6-how-results-are-measured)
    - [6.1 Recall@K](#61-recallk)
    - [6.2 Precision@K](#62-precisionk)
    - [6.3 MRR (Mean Reciprocal Rank)](#63-mrr-mean-reciprocal-rank)
-7. [Hasil & Insight Kunci](#7-hasil--insight-kunci)
-   - [7.1 BQ1: Seberapa sering pengguna gagal menemukan merchant?](#71-business-question-1--seberapa-sering-pengguna-gagal-menemukan-merchant-yang-mereka-cari)
-   - [7.2 BQ2: Apakah mesin pencari berbasis makna membantu?](#72-business-question-2--apakah-mesin-pencari-berbasis-makna-membantu-pengguna-lebih-baik)
-   - [7.3 BQ3: Bisakah hasil dipersonalisasi tanpa merusak relevansi?](#73-business-question-3--bisakah-hasil-disesuaikan-per-pelanggan-tanpa-merusak-relevansi)
-8. [Kesimpulan](#8-kesimpulan)
-9. [Rekomendasi](#9-rekomendasi)
-10. [Batasan & Keterbatasan Proyek](#10-batasan--keterbatasan-proyek)
-11. [Cara Menjalankan](#11-cara-menjalankan)
-12. [Struktur Proyek](#12-struktur-proyek)
-13. [Pengembangan Lanjutan](#13-pengembangan-lanjutan)
-14. [Referensi](#14-referensi)
+7. [Results & Key Insights](#7-results--key-insights)
+   - [7.1 BQ1: How often do users fail to find the merchant they're looking for?](#71-business-question-1--how-often-do-users-fail-to-find-the-merchant-theyre-looking-for)
+   - [7.2 BQ2: Does a meaning-based search engine help?](#72-business-question-2--does-a-meaning-based-search-engine-help-users-more)
+   - [7.3 BQ3: Can results be personalized without hurting relevance?](#73-business-question-3--can-results-be-personalized-per-customer-without-hurting-relevance)
+8. [Conclusion](#8-conclusion)
+9. [Recommendations](#9-recommendations)
+10. [Limitations & Constraints](#10-limitations--constraints)
+11. [How to Run](#11-how-to-run)
+12. [Project Structure](#12-project-structure)
+13. [Future Work](#13-future-work)
+14. [References](#14-references)
 
-## 1. Latar Belakang & Business Questions
+## 1. Background & Business Questions
 
-Pencarian kata kunci cuma cocok kalau kata di query sama persis dengan kata di teks yang dicari. Query "perlengkapan bayi murah" bisa gagal menemukan merchant yang relevan kalau profilnya ditulis dengan kata lain. Semantic search mengatasi ini dengan mencocokkan makna, bukan kata per kata. Keterbatasan pencocokan literal ini dan manfaat menggabungkannya dengan pencocokan berbasis makna (semantic) juga ditunjukkan pada studi retrieval dokumen berskala besar, yang menjadi salah satu dasar rekomendasi hybrid TF-IDF + semantic di proyek ini (Kuzi et al., 2020).
+Keyword search only works when the query words exactly match the words in the searched text. A query like "cheap baby supplies" can fail to find a relevant merchant if the merchant's profile uses different wording. Semantic search addresses this by matching meaning instead of matching word-for-word. Large-scale document retrieval research has shown this same limitation of literal matching, and the benefit of combining it with meaning-based (semantic) matching a finding that underpins this project's recommendation to use a hybrid of TF-IDF and semantic search (Kuzi et al., 2020).
 
-Tiga pertanyaan yang dijawab proyek ini:
+This project answers three questions:
 
-| # | Pertanyaan | Diukur pakai |
+| # | Question | Measured with |
 |---|---|---|
-| BQ1 | Seberapa sering pengguna gagal menemukan merchant yang mereka cari lewat pencarian saat ini? | Recall@10 dan studi kasus kualitatif pada TF-IDF |
-| BQ2 | Kalau mesin pencari diganti ke yang berbasis makna (bukan kata kunci), apakah pengguna lebih sering menemukan merchant yang relevan? | Recall@10, Precision@10, MRR  TF-IDF vs semantic |
-| BQ3 | Bisakah urutan hasil pencarian disesuaikan dengan kebiasaan belanja tiap pelanggan, tanpa membuat hasilnya kurang relevan? | Overlap top-5 vs skor relevansi query, di berbagai nilai `alpha`, untuk satu query uji ("produk elektronik") pada engine semantic |
+| BQ1 | How often do users fail to find the merchant they're looking for using the current search? | Recall@10 and a qualitative case study on TF-IDF |
+| BQ2 | If the search engine switches from keyword-based to meaning-based, do users find relevant merchants more often? | Recall@10, Precision@10, MRR TF-IDF vs. semantic |
+| BQ3 | Can search result ranking be tailored to each customer's shopping habits without making results less relevant? | Top-5 overlap vs. query relevance score, across several `alpha` values, for one test query ("electronic products") on the semantic engine |
 
-## 2. Sumber Data
+## 2. Data Source
 
-[Olist Brazilian E-Commerce (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce): 9 tabel CSV (customers, orders, order_items, order_payments, order_reviews, products, sellers, geolocation, category_translation). Data seller cuma berisi `seller_id`, kode pos, kota, dan provinsi  tidak ada nama atau deskripsi toko. Karena itu, profil teks tiap merchant harus disusun dari riwayat transaksinya, bukan diambil langsung dari data.
+[Olist Brazilian E-Commerce (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce): 9 CSV tables (customers, orders, order_items, order_payments, order_reviews, products, sellers, geolocation, category_translation). The seller data contains only `seller_id`, postal code, city, and state no store name or description. Because of this, each merchant's text profile has to be built from their transaction history rather than taken directly from the data.
 
-## 3. Metodologi / Alur Kerja
+## 3. Methodology / Workflow
 
-| Tahap | Isi | Output kunci |
+| Stage | Content | Key output |
 |---|---|---|
-| 1. Setup & load data | Baca 9 CSV Olist | 9 DataFrame mentah |
-| 2. Tantangan data | Cek struktur `sellers`: tidak ada nama/deskripsi | Justifikasi rekonstruksi profil |
-| 3. Bangun profil teks merchant | Gabungkan order_items → products → kategori (EN→ID) → orders → reviews → sellers, lalu susun jadi kalimat per seller (min. 3 order) | 2.138 profil merchant siap diembed |
-| 4. Baseline TF-IDF | `TfidfVectorizer` (unigram+bigram) + cosine similarity | Engine TF-IDF, vocab 5.281 term |
-| 5. Semantic search | `sentence-transformers` (`paraphrase-multilingual-MiniLM-L12-v2`) + FAISS `IndexFlatIP`, fallback otomatis ke TF-IDF+SVD kalau tidak ada internet | Engine semantic |
-| 6. Bandingkan engine | 3 query bahasa sehari-hari dicoba di kedua engine | Studi kasus kualitatif |
-| 7. Evaluasi kuantitatif | Ground truth sintetis dari taksonomi kategori (110 query), hitung Recall@10 / Precision@10 / MRR | Tabel & chart perbandingan |
-| 8. Personalisasi | Gabungkan skor query (engine semantic) dengan skor histori kategori pelanggan (≥2 order), untuk 1 query uji ("produk elektronik") | Evaluasi trade-off relevansi vs personalisasi |
+| 1. Setup & load data | Read the 9 Olist CSV files | 9 raw DataFrames |
+| 2. Data challenge | Check the `sellers` table structure: no name/description | Justification for profile reconstruction |
+| 3. Build merchant text profiles | Join order_items → products → category (EN→ID) → orders → reviews → sellers, then compose a sentence per seller (min. 3 orders) | 2,138 merchant profiles ready for embedding |
+| 4. TF-IDF baseline | `TfidfVectorizer` (unigram+bigram) + cosine similarity | TF-IDF engine, 5,281-term vocabulary |
+| 5. Semantic search | `sentence-transformers` (`paraphrase-multilingual-MiniLM-L12-v2`) + FAISS `IndexFlatIP`, with automatic fallback to TF-IDF+SVD if there's no internet access | Semantic engine |
+| 6. Compare engines | 3 everyday-language queries tested on both engines | Qualitative case study |
+| 7. Quantitative evaluation | Synthetic ground truth from the category taxonomy (110 queries), computing Recall@10 / Precision@10 / MRR | Comparison tables & charts |
+| 8. Personalization | Combine the query score (semantic engine) with a customer category-history score (≥2 orders), for 1 test query ("electronic products") | Evaluation of the relevance vs. personalization trade-off |
 
-Model embedding multibahasa yang dipakai di tahap 5 (`paraphrase-multilingual-MiniLM-L12-v2`) berasal dari pendekatan knowledge distillation yang memetakan kalimat lintas bahasa ke ruang vektor yang sama, sehingga kalimat dengan makna serupa saling berdekatan meski bahasanya berbeda (Reimers & Gurevych, 2020).
+The multilingual embedding model used in stage 5 (`paraphrase-multilingual-MiniLM-L12-v2`) comes from a knowledge distillation approach that maps sentences across languages into the same vector space, so sentences with similar meaning end up close together even when written in different languages (Reimers & Gurevych, 2020).
 
 ## 4. Tech Stack
 
 - Python: pandas, numpy
 - Search: scikit-learn (`TfidfVectorizer`, cosine similarity), `sentence-transformers` (`paraphrase-multilingual-MiniLM-L12-v2`), FAISS (`IndexFlatIP`)
-- Evaluasi: Recall@K, Precision@K, MRR, dihitung manual dari ground truth sintetis
-- Visualisasi: matplotlib
-- Demo terpisah: Streamlit (`app.py`, di luar notebook ini)
+- Evaluation: Recall@K, Precision@K, MRR, computed manually from synthetic ground truth
+- Visualization: matplotlib
+- Separate demo: Streamlit (`app.py`, outside this notebook)
 
-## 5. Cara Kerja Tiap Algoritma
+## 5. How Each Algorithm Works
 
 ### 5.1 TF-IDF
-*Dalam bahasa sederhana:* cara kerjanya mirip mencari kata kunci yang "khas" untuk membedakan satu toko dari toko lain  seperti mengenali seseorang dari kata-kata yang sering ia ucapkan tapi jarang diucapkan orang lain, bukan dari kata umum seperti "saya" atau "baik" yang semua orang pakai. Kata yang sering muncul di satu profil merchant tapi jarang muncul di profil lain dianggap penting untuk profil itu. Kata umum yang muncul di hampir semua profil (seperti "produk" atau "bagus") dianggap kurang penting.
+*In plain terms:* this works like finding the words that are "distinctive" to one store versus another similar to recognizing someone by the words they use often but other people rarely use, rather than by common words like "I" or "good" that everyone uses. A word that appears often in one merchant's profile but rarely in others is treated as important for that profile. Common words that appear in almost every profile (like "product" or "great") are treated as less important.
 
 ```
 tfidf(t, d) = tf(t, d) × log(N / df(t))
 ```
 
-`tf(t, d)`: berapa kali kata `t` muncul di dokumen `d`. `N`: jumlah total dokumen. `df(t)`: di berapa dokumen kata itu muncul. Query dan profil merchant diubah jadi angka pakai rumus ini, lalu dibandingkan pakai cosine similarity.
+`tf(t, d)`: how many times word `t` appears in document `d`. `N`: total number of documents. `df(t)`: the number of documents the word appears in. Both the query and the merchant profiles are converted to numbers using this formula, then compared using cosine similarity.
 
-### 5.2 Cosine similarity 
-Ini rumus yang dipakai TF-IDF dan semantic search untuk mengukur "seberapa mirip" dua teks setelah diubah jadi angka (vektor).
+### 5.2 Cosine similarity
+This is the formula both TF-IDF and semantic search use to measure "how similar" two texts are once they've been converted to numbers (vectors).
 
-*Dalam bahasa sederhana:* bayangkan tiap teks diubah jadi satu panah yang menunjuk ke suatu arah di ruang angka. Dua teks dianggap mirip kalau panahnya menunjuk ke arah yang sama, tidak peduli panjang-pendeknya panah. Jadi deskripsi toko yang panjang dan yang pendek tapi isinya senada tetap dianggap mirip.
+*In plain terms:* imagine each text turned into an arrow pointing in some direction in number-space. Two texts are considered similar if their arrows point in the same direction, regardless of how long or short the arrows are. So a long store description and a short one with the same underlying meaning are still treated as similar.
 
 ```
 cos(A, B) = (A · B) / (‖A‖ × ‖B‖)
 ```
 
-Intinya: mengukur arah, bukan panjang. Teks panjang dan teks pendek dengan isi mirip tetap dianggap mirip, karena yang dibandingkan cuma arahnya.
+The key point: this measures direction, not length. Long and short texts with similar content are still treated as similar, because only their direction is compared.
 
 ### 5.3 Semantic search
 
-*Dalam bahasa sederhana:* kalau TF-IDF cuma mencocokkan kata yang sama persis, semantic search mencocokkan **makna**. Query "perlengkapan bayi murah" dan profil merchant "produk anak harga terjangkau" tidak share satu kata pun secara literal, tapi maknanya nyaris identik  semantic search bisa menangkap ini, TF-IDF tidak. Caranya:
+*In plain terms:* where TF-IDF only matches identical words, semantic search matches **meaning**. The query "cheap baby supplies" and a merchant profile reading "affordable children's products" share no words literally, but their meanings are nearly identical semantic search can catch this, TF-IDF cannot. Here's how:
 
-Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda  lewat proses knowledge distillation dari model monolingual berbahasa Inggris ke ruang vektor multibahasa (Reimers & Gurevych, 2020), sehingga model ini bisa dipakai untuk profil dan query berbahasa Indonesia meski data latihan aslinya didominasi bahasa Inggris. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
+The query and merchant profiles are converted to numbers using an AI model (`paraphrase-multilingual-MiniLM-L12-v2`), rather than counted from word occurrences the way TF-IDF works. This model is trained so that sentences with similar meaning produce numbers that sit close together, even when the wording differs through a knowledge distillation process from a monolingual English model into a multilingual vector space (Reimers & Gurevych, 2020). This lets the model work for Indonesian-language profiles and queries even though its original training data was mostly English. FAISS (`IndexFlatIP`) is used to search for matches quickly the results are equivalent to cosine similarity, but far more efficient at scale.
 
-### 5.4 Personalisasi
+### 5.4 Personalization
 
-Skor akhir tiap merchant adalah campuran dua hal: relevansi terhadap query, dan kecocokan dengan kebiasaan belanja pelanggan.
+Each merchant's final score blends two things: relevance to the query, and fit with the customer's shopping habits.
 
 ```
 final_score = alpha × score_query + (1 - alpha) × score_history
 ```
 
-`alpha` mengatur porsi campurannya. `alpha = 1.0` berarti murni relevansi query, tanpa personalisasi. Makin kecil `alpha`, makin besar pengaruh histori pelanggan.
+`alpha` controls the mix. `alpha = 1.0` means pure query relevance, with no personalization. The smaller `alpha` is, the more weight customer history carries.
 
-*Dalam bahasa sederhana:* bayangkan `alpha` sebagai "tombol geser" antara dua kutub. Digeser penuh ke satu sisi (`alpha = 1.0`), hasil pencarian murni jawab apa yang diketik user, tidak peduli siapa usernya. Digeser ke sisi lain, hasil makin condong ke barang-barang yang biasa dibeli user itu, meski relevansinya dengan kata yang diketik jadi berkurang. Bagian 7.3 di bawah menunjukkan titik geser yang paling seimbang.
+*In plain terms:* think of `alpha` as a slider between two extremes. Pushed all the way to one side (`alpha = 1.0`), search results answer only what the user typed, regardless of who the user is. Pushed toward the other side, results lean more toward items that user typically buys, even as relevance to the typed words decreases. Section 7.3 below shows the most balanced setting for this slider.
 
-## 6. Cara Mengukur Hasilnya
+## 6. How Results Are Measured
 
-Tiga metrik ini dihitung dari 110 query ground truth sintetis:
+These three metrics are calculated from 110 synthetic ground-truth queries:
 
 ### 6.1 Recall@K
-Dari semua merchant yang seharusnya muncul, berapa persen yang benar-benar masuk ke K hasil teratas. Recall rendah berarti banyak merchant relevan yang terlewat.
+Of all the merchants that should appear, what percentage actually made it into the top K results. Low recall means many relevant merchants are being missed.
 
 ```
-Recall@K = (merchant relevan yang masuk top-K) / (total merchant relevan)
+Recall@K = (relevant merchants in top-K) / (total relevant merchants)
 ```
 
 ### 6.2 Precision@K
 
-Dari K hasil yang ditampilkan, berapa persen yang benar-benar relevan. Precision rendah berarti banyak hasil yang "nyasar".
+Of the K results shown, what percentage are actually relevant. Low precision means many results are "off target."
 
 ```
-Precision@K = (merchant relevan yang masuk top-K) / K
+Precision@K = (relevant merchants in top-K) / K
 ```
 
 ### 6.3 MRR (Mean Reciprocal Rank)
-Seberapa cepat hasil yang relevan muncul, dirata-rata dari semua query. MRR tinggi berarti hasil paling relevan biasanya muncul di urutan atas, bukan terkubur di posisi bawah.
+How quickly a relevant result appears, averaged across all queries. High MRR means the most relevant result usually appears near the top, rather than buried further down.
 
 ```
 MRR = (1 / |Q|) × Σ (1 / rank_i)
 ```
 
-`|Q|`: jumlah query. `rank_i`: posisi hasil relevan pertama untuk query ke-`i`.
+`|Q|`: number of queries. `rank_i`: the position of the first relevant result for query `i`.
 
-*Artinya, dalam bahasa sederhana:* kalau untuk satu query hasil pertama yang benar muncul di posisi ke-2, skornya 1/2 = 0,5. Kalau baru muncul di posisi ke-10, skornya 1/10 = 0,1. MRR = 0,777 (skor TF-IDF di tabel bawah) berarti rata-rata, hasil relevan pertama muncul sekitar posisi ke-1,3  hampir selalu langsung di urutan teratas.
+*In plain terms:* if the first correct result for a query appears in position 2, its score is 1/2 = 0.5. If it only appears in position 10, its score is 1/10 = 0.1. An MRR of 0.777 (TF-IDF's score in the table below) means that, on average, the first relevant result appears around position 1.3 almost always right at the top.
 
-## 7. Hasil & Insight Kunci
+## 7. Results & Key Insights
 
-### 7.1 Business Question 1  seberapa sering pengguna gagal menemukan merchant yang mereka cari?
+### 7.1 Business Question 1 how often do users fail to find the merchant they're looking for?
 
-TF-IDF melewatkan rata-rata ~42% merchant relevan di top-10 (Recall@10 = 0,579). Kegagalannya bukan cuma "tidak ketemu"  kadang TF-IDF malah salah arah kalau ada kata yang kebetulan sama tapi maksudnya beda. Contoh: query "biar kerja dari rumah makin nyaman" nyasar ke kategori "material konstruksi rumah", gara-gara kata "rumah".
+TF-IDF misses an average of ~42% of relevant merchants in the top 10 (Recall@10 = 0.579). The failures aren't just "not found" sometimes TF-IDF points in the wrong direction entirely when a word happens to match but means something different. For example: the query "make working from home more comfortable" ends up in the "home construction materials" category, purely because of the shared word "home."
 
-### 7.2 Business Question 2  apakah mesin pencari berbasis makna membantu pengguna lebih baik?
+### 7.2 Business Question 2 does a meaning-based search engine help users more?
 
-![Perbandingan TF-IDF vs Semantic](assets/engine_comparison.png)
+![TF-IDF vs Semantic Comparison](assets/engine_comparison.png)
 
 | Engine | Recall@10 | Precision@10 | MRR |
 |---|---|---|---|
-| TF-IDF | 0,579 | 0,510 | 0,777 |
-| Semantic | 0,604 | 0,525 | 0,773 |
+| TF-IDF | 0.579 | 0.510 | 0.777 |
+| Semantic | 0.604 | 0.525 | 0.773 |
 
-Semantic search menang di recall dan precision (naik 2,5 dan 1,5 poin), tapi MRR-nya sedikit kalah  TF-IDF masih sedikit lebih jago menaruh hasil terbaik di posisi #1. Selisihnya nyata tapi tidak besar, karena ground truth dibuat dari kata kunci kategori yang sama persis dengan teks profil merchant, jadi menguntungkan TF-IDF yang mengandalkan kecocokan kata.
+Semantic search wins on recall and precision (up 2.5 and 1.5 points), but its MRR is slightly lower TF-IDF still has a small edge at placing the best result in position #1. The gap is real but not large, because the ground truth was built from category keywords that match the merchant profile text exactly, which structurally favors TF-IDF's word-matching approach.
 
-Semantic search juga tidak selalu menang. Performanya tergantung seberapa dekat kata-kata di query dengan kosakata yang ada di profil merchant.
+Semantic search doesn't win every time either. Its performance depends on how closely the query's wording matches the vocabulary in the merchant profiles.
 
-### 7.3 Business Question 3  bisakah hasil disesuaikan per pelanggan tanpa merusak relevansi?
+### 7.3 Business Question 3 can results be personalized per customer without hurting relevance?
 
-**Cakupan pengujian:** trade-off ini diukur pada 50 pelanggan (yang punya histori ≥2 order) dan 4 nilai `alpha`, tapi seluruhnya untuk **satu query uji** ("produk elektronik") dan **satu engine** (semantic). Ini cukup untuk melihat pola trade-off secara terukur (bukan cuma 1 contoh anekdotal seperti demo awal), tapi belum berarti pola ini pasti sama untuk query lain atau untuk TF-IDF  lihat Batasan poin 4.
+**Test scope:** this trade-off was measured across 50 customers (with a history of ≥2 orders) and 4 `alpha` values, but all for **one test query** ("electronic products") and **one engine** (semantic). This is enough to see a measurable trade-off pattern (not just a single anecdotal example like the initial demo), but it doesn't yet guarantee the same pattern holds for other queries or for TF-IDF see Limitation #4.
 
-![Trade-off personalisasi](assets/personalization_tradeoff.png)
+![Personalization Trade-off](assets/personalization_tradeoff.png)
 
-| alpha | Overlap top-5 vs non-personalized | Relevansi query |
+| alpha | Top-5 overlap vs. non-personalized | Query relevance |
 |---|---|---|
-| 1,0 | 100% | 0,928 |
-| 0,7 | 77,2% | 0,919 (turun 1%) |
-| 0,5 | 32,8% | 0,758 (turun 18%) |
-| 0,3 | 5,6% | 0,544 (turun 41%) |
+| 1.0 | 100% | 0.928 |
+| 0.7 | 77.2% | 0.919 (down 1%) |
+| 0.5 | 32.8% | 0.758 (down 18%) |
+| 0.3 | 5.6% | 0.544 (down 41%) |
 
-`alpha ≈ 0,7` adalah titik paling seimbang: 23% hasil sudah bergeser ke preferensi pelanggan, tapi relevansi query nyaris tidak turun (~1%). Di bawah `alpha = 0,5`, relevansi mulai anjlok.
+`alpha ≈ 0.7` is the most balanced point: 23% of results have already shifted toward customer preference, while query relevance barely drops (~1%). Below `alpha = 0.5`, relevance starts to fall sharply.
 
-Catatan penting: fitur ini baru bisa dipakai untuk 2.876 dari 99.441 pelanggan (2,9%) yang punya histori ≥2 order. Sebagian besar pelanggan Olist cuma belanja sekali, jadi >97% pelanggan belum bisa menikmati personalisasi ini.
+Important note: this feature currently only works for 2,876 of 99,441 customers (2.9%) who have a history of ≥2 orders. Most Olist customers shop only once, so over 97% of customers can't benefit from this personalization yet.
 
-## 8. Kesimpulan
+## 8. Conclusion
 
-Ketiga business question di Bagian 1 terjawab dengan hasil yang konsisten satu sama lain:
+The three business questions from Section 1 are answered with results that are consistent with one another:
 
-1. **Pencarian kata kunci saat ini memang bermasalah.** TF-IDF melewatkan hampir separuh (~42%) merchant relevan di top-10, dan sebagian kegagalannya bukan cuma "tidak ketemu" tapi "salah arah"  nyasar ke kategori yang tidak relevan gara-gara kebetulan ada kata yang sama. Ini mengonfirmasi masalah awal yang mendasari proyek: pencocokan kata literal tidak cukup untuk query bahasa sehari-hari.
-2. **Semantic search terbukti lebih baik, tapi bukan solusi mutlak.** Recall@10 dan Precision@10 naik masing-masing 2,5 dan 1,5 poin dibanding TF-IDF, namun MRR-nya sedikit lebih rendah  TF-IDF masih sedikit unggul menaruh hasil terbaik di posisi #1. Selisih yang tidak besar ini sebagian disebabkan ground truth yang dibuat dari kata kunci kategori, sehingga secara struktural menguntungkan TF-IDF. Kesimpulannya: semantic search adalah peningkatan yang nyata, tapi kekuatannya baru maksimal kalau digabung dengan TF-IDF (hybrid), bukan menggantikannya sepenuhnya.
-3. **Personalisasi berbasis histori belanja bisa dilakukan tanpa mengorbankan relevansi  asal di rentang `alpha` yang tepat.** Pada `alpha ≈ 0,7`, hasil sudah cukup bergeser ke preferensi pelanggan (23% top-5 berubah) sementara relevansi query nyaris tidak turun (~1%). Di bawah `alpha = 0,5`, trade-off berbalik cepat dan relevansi anjlok. Tapi manfaat ini masih sangat terbatas cakupannya: baru 2,9% pelanggan Olist yang punya histori order cukup untuk dipersonalisasi, dan pola `alpha` ini baru diuji pada satu query dan satu engine.
+1. **The current keyword search is genuinely a problem.** TF-IDF misses nearly half (~42%) of relevant merchants in the top 10, and some of these failures aren't just "not found" but "misdirected" landing in an irrelevant category because a word happened to match. This confirms the core problem the project set out to address: literal word matching isn't enough for everyday-language queries.
+2. **Semantic search is proven better, but it isn't a complete solution on its own.** Recall@10 and Precision@10 rise by 2.5 and 1.5 points respectively compared to TF-IDF, but its MRR is slightly lower TF-IDF still has a small edge at placing the best result in position #1. Part of this small gap comes from ground truth built on category keywords, which structurally favors TF-IDF. The takeaway: semantic search is a real improvement, but it performs best combined with TF-IDF (hybrid), not as a full replacement.
+3. **Personalization based on shopping history can work without sacrificing relevance within the right `alpha` range.** At `alpha ≈ 0.7`, results shift meaningfully toward customer preference (23% of the top 5 changes) while query relevance barely drops (~1%). Below `alpha = 0.5`, the trade-off turns sharply and relevance drops fast. But this benefit still has limited reach: only 2.9% of Olist customers currently have enough order history to be personalized, and this `alpha` pattern has only been tested on one query and one engine.
 
-Secara keseluruhan, proyek ini menunjukkan bahwa peralihan dari pencarian berbasis kata kunci ke pencarian berbasis makna adalah langkah yang tervalidasi secara terukur, dengan personalisasi sebagai lapisan tambahan yang aman diterapkan pada rentang `alpha` yang sudah diketahui  dengan catatan bahwa cakupan pengujian personalisasi dan porsi pelanggan yang bisa dijangkau keduanya masih perlu diperluas sebelum rollout penuh (lihat Rekomendasi dan Batasan).
+Overall, this project shows that moving from keyword-based to meaning-based search is a measurably validated step, with personalization as an additional layer that's safe to apply within the known `alpha` range with the caveat that both the personalization test scope and the share of customers it can reach still need to be expanded before a full rollout (see Recommendations and Limitations).
 
-## 9. Rekomendasi
+## 9. Recommendations
 
-Tiap rekomendasi di bawah menjawab salah satu business question di Bagian 1.
+Each recommendation below addresses one of the business questions from Section 1.
 
-**Untuk BQ 1 & 2  kualitas pencarian:**
+**For BQ 1 & 2 search quality:**
 
-1. Gabungkan TF-IDF dan semantic jadi satu (hybrid), jangan pilih salah satu. Semantic menambal miss TF-IDF, TF-IDF menambal salah arah semantic saat kosakata query jauh dari profil merchant  pendekatan hybrid seperti ini konsisten dengan temuan bahwa pencocokan semantic dan leksikal saling melengkapi, bukan saling menggantikan (Kuzi et al., 2020).
-2. Tulis profil merchant dengan kalimat yang lebih natural, bukan template kaku, supaya model semantic punya lebih banyak "bahan" untuk memahami makna  ini langsung menaikkan recall semantic (BQ2) dan mengurangi salah arah TF-IDF (BQ1).
+1. Combine TF-IDF and semantic search into a hybrid, rather than choosing one. Semantic search catches what TF-IDF misses; TF-IDF catches semantic search's misdirections when a query's vocabulary is far from the merchant profile text this hybrid approach is consistent with findings that semantic and lexical matching complement each other rather than replace one another (Kuzi et al., 2020).
+2. Write merchant profiles in more natural sentences instead of a rigid template, so the semantic model has more material to work with for understanding meaning this directly raises semantic recall (BQ2) and reduces TF-IDF's misdirected results (BQ1).
 
-**Untuk BQ 3  personalisasi:**
+**For BQ 3 personalization:**
 
-3. Pakai `alpha` di kisaran 0,6–0,8, bukan asal pasang 0,7 tanpa dites  rentang ini menjaga relevansi query tetap turun di bawah ~5%, berdasarkan hasil pada query uji di atas.
-4. Sebelum rollout, ulangi pengujian trade-off `alpha` di beberapa query lain (bukan cuma "produk elektronik") untuk memastikan titik seimbang 0,6–0,8 juga berlaku di sana.
-5. Buat cara personalisasi lain berbasis aktivitas sesi (kategori yang sedang dilihat/diklik), khusus untuk >97% pelanggan yang belum punya histori order dan belum kejangkau blending `alpha`.
+3. Use `alpha` in the range of 0.6–0.8, rather than defaulting to 0.7 without testing this range keeps query relevance loss under roughly 5%, based on the test query results above.
+4. Before rollout, repeat the `alpha` trade-off testing on several other queries (not just "electronic products") to confirm the 0.6–0.8 balance point holds there too.
+5. Build an alternative personalization method based on session activity (categories being viewed or clicked), specifically for the 97%+ of customers who don't yet have order history and can't be reached by `alpha` blending.
 
-## 10. Batasan & Keterbatasan Proyek
+## 10. Limitations & Constraints
 
-1. Ground truth evaluasi (Recall@K/Precision@K/MRR) masih dibuat sintetis dari taksonomi kategori, bukan dari log pencarian pengguna asli.
-2. Profil merchant hasil rekonstruksi dari data transaksi, bukan deskripsi asli yang ditulis merchant.
-3. ~31% seller (957 dari 3.095) tidak masuk pencarian karena order-nya kurang dari 3  datanya terlalu sedikit untuk bikin profil yang representatif.
-4. Evaluasi trade-off personalisasi di bagian 7.3, meski terukur lintas 50 pelanggan × 4 nilai alpha, baru dicoba pada **1 query** ("produk elektronik") dan **1 engine** (semantic)  belum divariasikan ke query atau engine lain.
+1. The evaluation ground truth (Recall@K/Precision@K/MRR) is still synthetic, built from the category taxonomy rather than from real user search logs.
+2. Merchant profiles are reconstructed from transaction data, not original descriptions written by the merchants themselves.
+3. ~31% of sellers (957 of 3,095) are excluded from search because they have fewer than 3 orders too little data to build a representative profile.
+4. The personalization trade-off evaluation in Section 7.3, while measured across 50 customers × 4 alpha values, has only been tested on **1 query** ("electronic products") and **1 engine** (semantic) it hasn't yet been varied across other queries or engines.
 
-## 11. Cara Menjalankan
+## 11. How to Run
 
-1. Taruh 9 file CSV Olist di folder `data/` (satu level di atas atau sejajar dengan folder `notebooks/`).
-2. Install dependency:
+1. Place the 9 Olist CSV files in the `data/` folder (one level above or alongside the `notebooks/` folder).
+2. Install dependencies:
    ```bash
    pip install pandas numpy scikit-learn sentence-transformers faiss-cpu matplotlib
    ```
-3. Jalankan notebook `semantic_search_merchant.ipynb` dari atas ke bawah (Run All). Kalau tidak ada akses internet ke `huggingface.co`, engine semantic otomatis pindah ke TF-IDF+SVD (LSA)  tetap jalan, tapi kualitasnya lebih rendah dari model transformer asli.
-4. (Opsional) jalankan demo interaktif terpisah:
+3. Run the `semantic_search_merchant.ipynb` notebook from top to bottom (Run All). If there's no internet access to `huggingface.co`, the semantic engine automatically falls back to TF-IDF+SVD (LSA) it still runs, but with lower quality than the original transformer model.
+4. (Optional) Run the separate interactive demo:
    ```bash
    streamlit run app.py
    ```
 
-## 12. Struktur Proyek
+## 12. Project Structure
 
 ```
 .
-├── data/                              # 9 CSV Olist (tidak disertakan di repo)
+├── data/                              # 9 Olist CSV files (not included in the repo)
 ├── notebooks/
-│   └── semantic_search_merchant.ipynb # notebook utama (pipeline + evaluasi + insight)
-├── assets/                            # chart hasil evaluasi untuk README
-├── app.py                             # demo Streamlit (terpisah dari notebook)
+│   └── semantic_search_merchant.ipynb # main notebook (pipeline + evaluation + insights)
+├── assets/                            # evaluation charts for the README
+├── app.py                             # Streamlit demo (separate from the notebook)
 └── README.md
 ```
 
-## 13. Pengembangan Lanjutan
+## 13. Future Work
 
-1. Kumpulkan log pencarian pengguna asli lewat demo Streamlit, supaya ground truth evaluasi lebih mencerminkan kondisi nyata.
-2. Coba model embedding multibahasa lain, atau fine-tuning ringan khusus e-commerce Indonesia.
-3. A/B test hybrid scoring (TF-IDF + semantic) melawan semantic murni, pakai query nyata.
-4. Perluas evaluasi personalisasi ke lebih banyak query dan nilai `alpha` yang lebih granular, untuk menemukan titik optimal per kategori.
+1. Collect real user search logs through the Streamlit demo, so the evaluation ground truth better reflects real-world conditions.
+2. Try other multilingual embedding models, or light fine-tuning specific to Indonesian e-commerce.
+3. A/B test hybrid scoring (TF-IDF + semantic) against pure semantic search, using real queries.
+4. Expand the personalization evaluation to more queries and more granular `alpha` values, to find the optimal setting per category.
 
-## 14. Referensi
+## 14. References
 
 Kuzi, S., Zhang, M., Li, C., Bendersky, M., & Najork, M. (2020). *Leveraging semantic and lexical matching to improve the recall of document retrieval systems: A hybrid approach* (arXiv:2010.01195). arXiv. https://arxiv.org/abs/2010.01195
 
