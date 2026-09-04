@@ -39,7 +39,7 @@ Tiga pertanyaan yang dijawab proyek ini:
 | # | Pertanyaan | Diukur pakai |
 |---|---|---|
 | BQ1 | Seberapa sering pengguna gagal menemukan merchant yang mereka cari lewat pencarian saat ini? | Recall@10 dan studi kasus kualitatif pada TF-IDF |
-| BQ2 | Kalau mesin pencari diganti ke yang berbasis makna (bukan kata kunci), apakah pengguna lebih sering menemukan merchant yang relevan? | Recall@10, Precision@10, MRR — TF-IDF vs semantic |
+| BQ2 | Kalau mesin pencari diganti ke yang berbasis makna (bukan kata kunci), apakah pengguna lebih sering menemukan merchant yang relevan? | Recall@10, Precision@10, MRR  TF-IDF vs semantic |
 | BQ3 | Bisakah urutan hasil pencarian disesuaikan dengan kebiasaan belanja tiap pelanggan, tanpa membuat hasilnya kurang relevan? | Overlap top-5 vs skor relevansi query, di berbagai nilai `alpha`, untuk satu query uji ("produk elektronik") pada engine semantic |
 
 ## 2. Sumber Data
@@ -72,7 +72,7 @@ Model embedding multibahasa yang dipakai di tahap 5 (`paraphrase-multilingual-Mi
 ## 5. Cara Kerja Tiap Algoritma
 
 ### 5.1 TF-IDF
-Cara kerjanya: kata yang sering muncul di satu profil merchant tapi jarang muncul di profil lain dianggap penting untuk profil itu. Kata umum yang muncul di hampir semua profil (seperti "produk" atau "bagus") dianggap kurang penting.
+*Dalam bahasa sederhana:* cara kerjanya mirip mencari kata kunci yang "khas" untuk membedakan satu toko dari toko lain  seperti mengenali seseorang dari kata-kata yang sering ia ucapkan tapi jarang diucapkan orang lain, bukan dari kata umum seperti "saya" atau "baik" yang semua orang pakai. Kata yang sering muncul di satu profil merchant tapi jarang muncul di profil lain dianggap penting untuk profil itu. Kata umum yang muncul di hampir semua profil (seperti "produk" atau "bagus") dianggap kurang penting.
 
 ```
 tfidf(t, d) = tf(t, d) × log(N / df(t))
@@ -81,7 +81,9 @@ tfidf(t, d) = tf(t, d) × log(N / df(t))
 `tf(t, d)`: berapa kali kata `t` muncul di dokumen `d`. `N`: jumlah total dokumen. `df(t)`: di berapa dokumen kata itu muncul. Query dan profil merchant diubah jadi angka pakai rumus ini, lalu dibandingkan pakai cosine similarity.
 
 ### 5.2 Cosine similarity 
-Ini rumus yang dipakai TF-IDF dan semantic search untuk mengukur "seberapa mirip" dua teks setelah diubah jadi angka (vektor):
+Ini rumus yang dipakai TF-IDF dan semantic search untuk mengukur "seberapa mirip" dua teks setelah diubah jadi angka (vektor).
+
+*Dalam bahasa sederhana:* bayangkan tiap teks diubah jadi satu panah yang menunjuk ke suatu arah di ruang angka. Dua teks dianggap mirip kalau panahnya menunjuk ke arah yang sama, tidak peduli panjang-pendeknya panah. Jadi deskripsi toko yang panjang dan yang pendek tapi isinya senada tetap dianggap mirip.
 
 ```
 cos(A, B) = (A · B) / (‖A‖ × ‖B‖)
@@ -91,7 +93,9 @@ Intinya: mengukur arah, bukan panjang. Teks panjang dan teks pendek dengan isi m
 
 ### 5.3 Semantic search
 
-Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda — lewat proses knowledge distillation dari model monolingual berbahasa Inggris ke ruang vektor multibahasa (Reimers & Gurevych, 2020), sehingga model ini bisa dipakai untuk profil dan query berbahasa Indonesia meski data latihan aslinya didominasi bahasa Inggris. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
+*Dalam bahasa sederhana:* kalau TF-IDF cuma mencocokkan kata yang sama persis, semantic search mencocokkan **makna**. Query "perlengkapan bayi murah" dan profil merchant "produk anak harga terjangkau" tidak share satu kata pun secara literal, tapi maknanya nyaris identik  semantic search bisa menangkap ini, TF-IDF tidak. Caranya:
+
+Query dan profil merchant diubah jadi angka pakai model AI (`paraphrase-multilingual-MiniLM-L12-v2`), bukan dihitung dari kemunculan kata seperti TF-IDF. Model ini sudah dilatih supaya kalimat dengan arti mirip menghasilkan angka yang berdekatan, walau kata-katanya beda  lewat proses knowledge distillation dari model monolingual berbahasa Inggris ke ruang vektor multibahasa (Reimers & Gurevych, 2020), sehingga model ini bisa dipakai untuk profil dan query berbahasa Indonesia meski data latihan aslinya didominasi bahasa Inggris. FAISS (`IndexFlatIP`) dipakai untuk mencari kecocokan dengan cepat  hasilnya setara dengan cosine similarity, tapi jauh lebih efisien kalau datanya besar.
 
 ### 5.4 Personalisasi
 
@@ -102,6 +106,8 @@ final_score = alpha × score_query + (1 - alpha) × score_history
 ```
 
 `alpha` mengatur porsi campurannya. `alpha = 1.0` berarti murni relevansi query, tanpa personalisasi. Makin kecil `alpha`, makin besar pengaruh histori pelanggan.
+
+*Dalam bahasa sederhana:* bayangkan `alpha` sebagai "tombol geser" antara dua kutub. Digeser penuh ke satu sisi (`alpha = 1.0`), hasil pencarian murni jawab apa yang diketik user, tidak peduli siapa usernya. Digeser ke sisi lain, hasil makin condong ke barang-barang yang biasa dibeli user itu, meski relevansinya dengan kata yang diketik jadi berkurang. Bagian 7.3 di bawah menunjukkan titik geser yang paling seimbang.
 
 ## 6. Cara Mengukur Hasilnya
 
@@ -130,6 +136,8 @@ MRR = (1 / |Q|) × Σ (1 / rank_i)
 ```
 
 `|Q|`: jumlah query. `rank_i`: posisi hasil relevan pertama untuk query ke-`i`.
+
+*Artinya, dalam bahasa sederhana:* kalau untuk satu query hasil pertama yang benar muncul di posisi ke-2, skornya 1/2 = 0,5. Kalau baru muncul di posisi ke-10, skornya 1/10 = 0,1. MRR = 0,777 (skor TF-IDF di tabel bawah) berarti rata-rata, hasil relevan pertama muncul sekitar posisi ke-1,3  hampir selalu langsung di urutan teratas.
 
 ## 7. Hasil & Insight Kunci
 
